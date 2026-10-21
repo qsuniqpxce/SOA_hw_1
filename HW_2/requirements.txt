@@ -1,0 +1,6 @@
+fastapi
+fastapi-code-generator
+uvicorn
+
+sqlalchemy[asyncio]
+asyncpg

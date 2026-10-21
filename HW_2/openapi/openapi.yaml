@@ -1,0 +1,411 @@
+# https://github.com/speakeasy-api/examples-repo/blob/main/how-to-build-terraform-providers/annotated-openapi.yaml
+
+openapi: 3.1.0
+
+info:
+  title: products API
+  version: 1.0.0
+
+paths:
+  /products/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest_400'
+        '404':
+          $ref: '#/components/responses/NotFound_404'
+
+    put:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+      responses:
+        '200':
+          description: updated
+        '400':
+          $ref: '#/components/responses/BadRequest_400'
+        '404':
+          $ref: '#/components/responses/NotFound_404'
+        '409':
+          $ref: '#/components/responses/Conflict_409'
+
+    delete:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: deleted
+        '400':
+          $ref: '#/components/responses/BadRequest_400'
+        '404':
+          $ref: '#/components/responses/NotFound_404'
+        '409':
+          $ref: '#/components/responses/Conflict_409'
+
+
+  /products:
+    get:
+      parameters:
+        - name: page_number
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ProductStatus'
+
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest_400'
+        '404':
+          $ref: '#/components/responses/NotFound_404'
+
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ProductCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest_400'
+        '429':
+          $ref: '#/components/responses/TooManyRequests_429'
+
+
+components:
+  schemas:
+    ProductStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, ARCHIVED]
+
+    ProductBase:
+      type: object
+      required:
+        - name
+        - price
+        - stock
+        - category
+        - status
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: decimal
+          minimum: 0.01
+        stock:
+          type: integer
+          minimum: 0
+        category:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+
+    CreateProductRequest:
+      allOf:
+        - $ref: '#/components/schemas/ProductBase'
+
+    ProductCreated:
+      type: object
+      required:
+        - id
+      properties:
+        id: 
+          type: string
+          format: uuid
+
+    ProductResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProductBase'
+        - type: object
+          required:
+            - id
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+  
+    ProductListResponse:
+      type: object
+      required:
+        - content
+        - total_elements
+        - page_number
+        - page_size
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductResponse'
+        total_elements:
+          type: integer
+        page_number:
+          type: integer
+          minimum: 0
+        page_size:
+          type: integer
+          minimum: 1
+
+    ErrorBase:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        details:
+          type: object
+
+    Error_ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: VALIDATION_ERROR
+
+    Error_OrderOwnershipViolation:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: ORDER_OWNERSHIP_VIOLATION
+
+    Error_ProductNotFound:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: PRODUCT_NOT_FOUND
+
+    Error_OrderNotFound:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: ORDER_NOT_FOUND
+
+    Error_ProductInactive:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: PRODUCT_INACTIVE
+
+    Error_OrderHasActive:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: ORDER_HAS_ACTIVE
+
+    Error_InvalidStateTransition:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: INVALID_STATE_TRANSITION
+
+    Error_InsufficientStock:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: INSUFFICIENT_STOCK
+
+    Error_PromoCodeInvalid:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: PROMO_CODE_INVALID
+
+    Error_PromoCodeMinAmount:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: PROMO_CODE_MIN_AMOUNT
+
+    Error_OrderLimitExceeded:
+      allOf:
+        - $ref: '#/components/schemas/ErrorBase'
+        - type: object
+          required:
+            - error_code
+          properties:
+            error_code:
+              type: string
+              const: ORDER_LIMIT_EXCEEDED
+
+  responses:
+    ProductCreated:
+      description: Product created
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProductCreated'
+
+    Product:
+      description: Product found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProductResponse'
+
+    BadRequest_400:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error_ValidationError'
+
+    Forbidden_403:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error_OrderOwnershipViolation'
+
+    NotFound_404:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/Error_ProductNotFound'
+              - $ref: '#/components/schemas/Error_OrderNotFound'
+            discriminator:
+              propertyName: error_code
+
+    Conflict_409:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/Error_ProductInactive'
+              - $ref: '#/components/schemas/Error_OrderHasActive'
+              - $ref: '#/components/schemas/Error_InvalidStateTransition'
+              - $ref: '#/components/schemas/Error_InsufficientStock'
+            discriminator:
+              propertyName: error_code
+
+    UnprocessableEntity_422:
+      description: Unprocessable entity
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/Error_PromoCodeInvalid'
+              - $ref: '#/components/schemas/Error_PromoCodeMinAmount'
+            discriminator:
+              propertyName: error_code
+
+    TooManyRequests_429:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error_OrderLimitExceeded'

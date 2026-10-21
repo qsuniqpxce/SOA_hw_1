@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=app_database
+    ports:
+      - "5444:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d app_database"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  flyway:
+    image: flyway/flyway:10-alpine
+    container_name: flyway_migrations
+    command:
+      - -url=jdbc:postgresql://db:5432/app_database
+      - -user=user
+      - -password=1234
+      - -connectRetries=60
+      - migrate
+    volumes:
+      - ./db/migrations:/flyway/sql
+    depends_on:
+      db:
+        condition: service_healthy
+  app:
+    build: .
+    container_name: fastapi_app
+    ports:
+      - "8088:8088"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:1234@db:5432/app_database
+    depends_on:
+      db:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+volumes:
+  pg_data:
